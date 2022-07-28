@@ -8,45 +8,58 @@ enum DayOfWeek {
     Sunday = 6,
 }
 
+//Basically every numerical entry on a cronjob can have *(for any) ,(for discrete separation) -(for
+//range) /(for step value)
+#[derive(Debug)]
+enum Rule {
+    All,           // All is a simple *
+    Range(u8, u8), // A range is composed of 2 numerical values (e.g 0-15)
+    Step(u8),      // A step is composed of one number (e.g */3)
+    Unit(u8),      // A Unit is a simple numerical value
+}
+
+#[derive(Debug)]
 struct CronJob {
-    minute: Option<u8>,
-    hour: Option<u8>,
-    day_of_month: Option<u8>,
-    month: Option<u8>,
-    day_of_week: Option<DayOfWeek>,
-    command: Option<String>,
+    minute: Vec<Rule>,
+    hour: Vec<Rule>,
+    day_of_month: Vec<Rule>,
+    month: Vec<Rule>,
+    day_of_week: Vec<Rule>,
+    command: String,
 }
 
 impl CronJob {
     fn new() -> Self {
         CronJob {
-            minute: None,
-            hour: None,
-            day_of_week: None,
-            month: None,
-            day_of_month: None,
-            command: None,
+            minute: Vec::<Rule>::new(),
+            hour: Vec::<Rule>::new(),
+            day_of_week: Vec::<Rule>::new(),
+            month: Vec::<Rule>::new(),
+            day_of_month: Vec::<Rule>::new(),
+            command: String::new(),
         }
     }
 
     fn generate_command(&self) -> String {
-        // The format for a cron job is: minute hour day_of_month month day_of_week command_to_run
-        // An imprtant thing to keep in mind is that if not specified it should be placed a *
-        
-        // Parse the input from u8 to String representation, * if None
-        let parse_input =
-            |input: Option<u8>| input.map_or_else(|| "*".to_string(), |value| value.to_string());
-
-        // Now we can popualte the command string with the structs fileds
-       format!("{} {} {} {} {} {}", parse_input(self.minute), parse_input(self.hour), parse_input(self.day_of_month), parse_input(self.month), "" , self.command.as_ref().unwrap() )
+        todo!()
     }
 
-    fn generate_file(&self, fiel_name: &str) {}
+    fn generate_file(&self, file_name: &str) {}
+}
+
+trait RuleManipulation {
+    fn add_rule(&mut self, new_rule: Rule);
+}
+
+impl RuleManipulation for Vec<Rule> {
+    fn add_rule(&mut self, new_rule: Rule){
+        self.push(new_rule);
+    }
 }
 
 fn main() {
-    let mut job = CronJob::new();
-    job.command = Some("python3 potato.py".to_string());
+    let mut anime = CronJob::new();
+    anime.minute.add_rule(Rule::Range(0, 10));
 
-    println!("{}", job.generate_command());
+    println!("{:#?}", anime);
 }
