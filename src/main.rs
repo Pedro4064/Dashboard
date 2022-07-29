@@ -10,22 +10,22 @@ enum DayOfWeek {
     Sunday,
 }
 
-trait RuleValue{
-    fn to_numerical_value(&self) -> u8;
+type RuleValueType = u8;
+trait RuleValue {
+    fn to_numerical_value(&self) -> RuleValueType;
 }
 
-impl RuleValue for DayOfWeek{
-    fn to_numerical_value(&self) -> u8 {
-        *self as u8
+impl RuleValue for DayOfWeek {
+    fn to_numerical_value(&self) -> RuleValueType {
+        *self as RuleValueType
     }
 }
 
-impl RuleValue for u8{
-    fn to_numerical_value(&self) -> u8{
+impl RuleValue for u8 {
+    fn to_numerical_value(&self) -> RuleValueType {
         *self
     }
 }
-
 
 #[derive(Debug)]
 enum Rule<T: RuleValue> {
@@ -37,11 +37,11 @@ enum Rule<T: RuleValue> {
 }
 
 #[derive(Debug)]
-struct CronJob {
-    minute: Vec<Rule<u8>>,
-    hour: Vec<Rule<u8>>,
-    day_of_month: Vec<Rule<u8>>,
-    month: Vec<Rule<u8>>,
+struct CronJob { 
+    minute: Vec<Rule<RuleValueType>>,
+    hour: Vec<Rule<RuleValueType>>,
+    day_of_month: Vec<Rule<RuleValueType>>,
+    month: Vec<Rule<RuleValueType>>,
     day_of_week: Vec<Rule<DayOfWeek>>,
     command: String,
 }
@@ -49,46 +49,57 @@ struct CronJob {
 impl CronJob {
     fn new() -> Self {
         CronJob {
-            minute: Vec::<Rule<u8>>::new(),
-            hour: Vec::<Rule<u8>>::new(),
+            minute: Vec::<Rule<RuleValueType>>::new(),
+            hour: Vec::<Rule<RuleValueType>>::new(),
             day_of_week: Vec::<Rule<DayOfWeek>>::new(),
-            month: Vec::<Rule<u8>>::new(),
-            day_of_month: Vec::<Rule<u8>>::new(),
+            month: Vec::<Rule<RuleValueType>>::new(),
+            day_of_month: Vec::<Rule<RuleValueType>>::new(),
             command: String::new(),
         }
     }
 
     fn generate_command(&self) -> String {
+        // The formatted crontab description command
+        let mut command = String::new();
+
+        // Specify the validation rule for each field
+        let minute_validator = |value: RuleValueType| value > 0 && value < 60;
+        let hour_validator = |value: RuleValueType| value > 0 && value < 24;
+        let day_of_week_validator = |value: RuleValueType| value > 0 && value < 7;
+        let month_validator = |value: RuleValueType| value >= 1 && value <= 12;
+        let day_of_month_validator = |value: RuleValueType| value >= 1 && value <= 31;
+
         for rule in &self.minute {
-            CronJob::parse_rule_entry(rule, |_| true);
+            command.push_str(&CronJob::parse_rule_entry(rule, minute_validator));
+            command.push(',');
         }
         for rule in &self.day_of_week {
             CronJob::parse_rule_entry(rule, |_| true);
         }
-         "".to_string()
+        command
     }
 
-    fn parse_rule_entry<T: RuleValue, F: Fn(Rule<T>) -> bool>(
+    fn parse_rule_entry<T: RuleValue, F: Fn(RuleValueType) -> bool>(
         rule: &Rule<T>,
         validator: F,
     ) -> String {
         match rule {
-            Rule::All => println!("All Rule"),
-            Rule::Range(x, y) => {
-                let x_value: u8 = x.to_numerical_value();
-                let y_value: u8 = y.to_numerical_value();
-                println!("Range Rule: {:?}-{:?}", x_value, y_value);
-            }
-            Rule::Step(step) => println!("Step Rule: */{:?}", step.to_numerical_value()),
-            Rule::Unit(value) => println!("Unit Rule: {:?}", value.to_numerical_value()),
-            Rule::RangedStep(l_limit, h_limit, step) => println!(
-                "RangedStep Rule: {:?}-{:?}/{}",
+            Rule::All => String::from("*"),
+            Rule::Range(l_bound, h_bound) => format!(
+                "{:?}-{:?}",
+                l_bound.to_numerical_value(),
+                h_bound.to_numerical_value()
+            )
+            ,
+            Rule::Step(step) => format!("*/{}", step.to_numerical_value()),
+            Rule::Unit(value) => format!("{}", value.to_numerical_value()),
+            Rule::RangedStep(l_limit, h_limit, step) => format!(
+                "{}-{}/{}",
                 l_limit.to_numerical_value(),
                 h_limit.to_numerical_value(),
                 step
             ),
-        }
-        "".to_string()
+        } 
     }
 
     fn generate_file(&self, file_name: &str) {}
