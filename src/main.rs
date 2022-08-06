@@ -1,3 +1,5 @@
+use std::fmt::Error;
+
 #[repr(u8)]
 #[derive(Debug)]
 enum DayOfWeek {
@@ -37,7 +39,7 @@ enum Rule<T: RuleValue> {
 }
 
 #[derive(Debug)]
-struct CronJob { 
+struct CronJob {
     minute: Vec<Rule<RuleValueType>>,
     hour: Vec<Rule<RuleValueType>>,
     day_of_month: Vec<Rule<RuleValueType>>,
@@ -58,7 +60,8 @@ impl CronJob {
         }
     }
 
-    fn generate_command(&self) -> String {
+    // TODO: Implement a custom set of errors for handling out of bound values
+    fn generate_command(&self) -> Result<String, String> {
         // The formatted crontab description command
         let mut command = String::new();
 
@@ -69,6 +72,7 @@ impl CronJob {
         let month_validator = |value: RuleValueType| value >= 1 && value <= 12;
         let day_of_month_validator = |value: RuleValueType| value >= 1 && value <= 31;
 
+        // Set the iterrator closure for parsing
         for rule in &self.minute {
             command.push_str(&CronJob::parse_rule_entry(rule, minute_validator));
             command.push(',');
@@ -76,30 +80,59 @@ impl CronJob {
         for rule in &self.day_of_week {
             CronJob::parse_rule_entry(rule, |_| true);
         }
-        command
+        Ok(command)
     }
 
     fn parse_rule_entry<T: RuleValue, F: Fn(RuleValueType) -> bool>(
         rule: &Rule<T>,
         validator: F,
-    ) -> String {
+    ) -> Result<String, String> {
         match rule {
-            Rule::All => String::from("*"),
-            Rule::Range(l_bound, h_bound) => format!(
-                "{:?}-{:?}",
-                l_bound.to_numerical_value(),
-                h_bound.to_numerical_value()
-            )
-            ,
-            Rule::Step(step) => format!("*/{}", step.to_numerical_value()),
-            Rule::Unit(value) => format!("{}", value.to_numerical_value()),
-            Rule::RangedStep(l_limit, h_limit, step) => format!(
-                "{}-{}/{}",
-                l_limit.to_numerical_value(),
-                h_limit.to_numerical_value(),
-                step
-            ),
-        } 
+            Rule::All => Ok(String::from("*")),
+            Rule::Range(l_bound, h_bound) => {
+                let l_bound_numerical = l_bound.to_numerical_value();
+                let h_bound_numerical = h_bound.to_numerical_value();
+
+                if !validator(l_bound_numerical)
+                    || !validator(h_bound_numerical)
+                    || h_bound_numerical < l_bound_numerical
+                {
+                    return Err("Number outside valid Range".to_string());
+                }
+                Ok(format!(
+                    "{:?}-{:?}",
+                    l_bound.to_numerical_value(),
+                    h_bound.to_numerical_value()
+                ))
+            }
+            Rule::Step(step) => {
+                let step_numerical = step.to_numerical_value();
+
+                if !validator(step_numerical) {
+                    return Err("Number outside valid Range".to_string());
+                }
+                Ok(format!("*/{}", step.to_numerical_value()))
+            }
+            Rule::Unit(value) => {
+                let value_numerical = value.to_numerical_value();
+
+                if !validator(value_numerical) {
+                    return Err("Number outside valid Range".to_string());
+                }
+                Ok(format!("{}", value.to_numerical_value()))
+            }
+            Rule::RangedStep(l_limit, h_limit, step) => {
+                let l_limit_numerical = l_limit.to_numerical_value();
+                let h_limit_numerical = h_limit.to_numerical_value();
+
+                // Perhaps Add another validation for checking if step is valid for the input range
+                // (e.g smaller than upper limit and if it is divisible)
+                if !validator(l_limit_numerical) || !validator(h_limit_numerical) || !validator(*step) {
+                    return Err("Number outside valid Range".to_string());
+                }
+                Ok(format!("{}-{}/{}", l_limit_numerical, h_limit_numerical, step))
+            }
+        }
     }
 
     fn generate_file(&self, file_name: &str) {}
